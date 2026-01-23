@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
 import { UserCircle, CheckCircle, AlertCircle, Edit, Shield, LogOut } from './Icons';
-import WalletModal from './WalletModal';
 import ProfileEdit from './ProfileEdit';
 import { compareProfileData } from '../utils/profileComparison';
+import { redirectToWallet, getVCFromUrl, clearVCParams } from '../utils/walletRedirect';
 
 export default function MyPage({ onLogout, userState, onUpdateUserState, vcLoginInfo }) {
-  const [showWallet, setShowWallet] = useState(false);
   const [submittedVC, setSubmittedVC] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showProfileMismatch, setShowProfileMismatch] = useState(false);
   const [profileDifferences, setProfileDifferences] = useState(null);
   const [isProcessingVC, setIsProcessingVC] = useState(false);
-  
+
   // ダミーデータ（初期値はuserStateから復元）
   const [userData, setUserData] = useState({
     memberId: 'M123456789',
@@ -24,6 +23,39 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
     linkedDID: userState?.linkedDID || null
   });
 
+  // URLパラメータからVCデータを取得（本人確認用）
+  useEffect(() => {
+    const vcResult = getVCFromUrl();
+    if (vcResult) {
+      if (vcResult.cancelled) {
+        // キャンセルされた場合
+        clearVCParams();
+        setIsProcessingVC(false);
+      } else if (vcResult.vc && vcResult.requestId === 'verify') {
+        // 本人確認用のVC
+        setIsProcessingVC(true);
+        clearVCParams();
+
+        setTimeout(() => {
+          setSubmittedVC(vcResult.vc);
+          const newUserData = {
+            ...userData,
+            isVerified: true,
+            linkedDID: vcResult.vc.did
+          };
+          setUserData(newUserData);
+
+          onUpdateUserState({
+            isVerified: true,
+            linkedDID: vcResult.vc.did
+          });
+
+          setIsProcessingVC(false);
+        }, 2000);
+      }
+    }
+  }, [onUpdateUserState, userData]);
+
   // VCログイン時にプロフィール情報の差異をチェック
   useEffect(() => {
     if (vcLoginInfo) {
@@ -32,15 +64,15 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
         birthDate: userData.birthDate,
         address: userData.address
       };
-      
+
       const vcProfile = {
         name: vcLoginInfo.holderName,
         birthDate: vcLoginInfo.birthDate,
         address: vcLoginInfo.address
       };
-      
+
       const differences = compareProfileData(currentProfile, vcProfile);
-      
+
       if (differences.hasDifference) {
         setProfileDifferences(differences);
         setShowProfileMismatch(true);
@@ -48,26 +80,10 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
     }
   }, [vcLoginInfo, userData.name, userData.address, userData.birthDate]);
 
-  const handleSubmitVC = (vc) => {
-    setSubmittedVC(vc);
-    setShowWallet(false);
-    setIsProcessingVC(true); // ローディング開始
-    
-    // 本人確認ステータスを更新し、DIDを紐付け（モック）
-    setTimeout(() => {
-      const newUserData = { 
-        ...userData, 
-        isVerified: true,
-        linkedDID: vc.did
-      };
-      setUserData(newUserData);
-      // 親コンポーネントに状態を保存
-      onUpdateUserState({
-        isVerified: true,
-        linkedDID: vc.did
-      });
-      setIsProcessingVC(false); // ローディング終了
-    }, 2000); // 2秒間のローディング
+  const handleVerifyIdentity = () => {
+    setIsProcessingVC(true);
+    // ウォレットサービスにリダイレクト
+    redirectToWallet('verify');
   };
 
   const handleProfileSave = (formData, method, did = null) => {
@@ -238,8 +254,8 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
                   </button>
                   
                   {!userData.isVerified && (
-                    <button 
-                      onClick={() => setShowWallet(true)}
+                    <button
+                      onClick={handleVerifyIdentity}
                       className="inline-flex items-center space-x-2 px-6 py-3 bg-white text-gray-700 font-medium rounded-lg border-2 border-gray-300 hover:bg-gray-50 transition-colors"
                     >
                       <Shield className="w-5 h-5" />
@@ -333,14 +349,6 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
           </div>
         )}
       </div>
-
-      {/* ウォレットモーダル */}
-      {showWallet && (
-        <WalletModal 
-          onClose={() => setShowWallet(false)}
-          onSubmitVC={handleSubmitVC}
-        />
-      )}
 
       {/* VC処理中のローディングオーバーレイ */}
       {isProcessingVC && (

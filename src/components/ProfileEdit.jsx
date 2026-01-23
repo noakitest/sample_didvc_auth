@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Send, Shield } from './Icons';
-import WalletModal from './WalletModal';
+import { redirectToWallet, getVCFromUrl, clearVCParams } from '../utils/walletRedirect';
 
 export default function ProfileEdit({ userData, onSave, onCancel }) {
   const [formData, setFormData] = useState({
@@ -9,9 +9,39 @@ export default function ProfileEdit({ userData, onSave, onCancel }) {
     address: userData.address,
     birthDate: userData.birthDate,
   });
-  const [showWallet, setShowWallet] = useState(false);
   const [updateMethod, setUpdateMethod] = useState(null); // 'manual' or 'vc'
   const [isProcessingVC, setIsProcessingVC] = useState(false);
+
+  // URLパラメータからVCデータを取得
+  useEffect(() => {
+    const vcResult = getVCFromUrl();
+    if (vcResult) {
+      if (vcResult.cancelled) {
+        // キャンセルされた場合
+        clearVCParams();
+        setIsProcessingVC(false);
+      } else if (vcResult.vc && vcResult.requestId === 'profile-edit') {
+        // プロフィール編集用のVC
+        setIsProcessingVC(true);
+        clearVCParams();
+        setUpdateMethod('vc');
+
+        // VCから情報を抽出して更新
+        const updatedData = {
+          name: vcResult.vc.holderName,
+          email: formData.email, // メールはVCに含まれないのでそのまま
+          address: vcResult.vc.address,
+          birthDate: vcResult.vc.birthDate,
+        };
+
+        // 2秒後に更新完了
+        setTimeout(() => {
+          onSave(updatedData, 'vc', vcResult.vc.did);
+          setIsProcessingVC(false);
+        }, 2000);
+      }
+    }
+  }, [formData.email, onSave]);
 
   const handleChange = (e) => {
     setFormData({
@@ -25,24 +55,10 @@ export default function ProfileEdit({ userData, onSave, onCancel }) {
     onSave(formData, 'manual');
   };
 
-  const handleVCUpdate = (vc) => {
-    setShowWallet(false);
-    setIsProcessingVC(true); // ローディング開始
-    setUpdateMethod('vc');
-    
-    // VCから情報を抽出して更新
-    const updatedData = {
-      name: vc.holderName,
-      email: formData.email, // メールはVCに含まれないのでそのまま
-      address: vc.address,
-      birthDate: vc.birthDate,
-    };
-    
-    // 2秒後に更新完了
-    setTimeout(() => {
-      onSave(updatedData, 'vc', vc.did);
-      setIsProcessingVC(false); // ローディング終了
-    }, 2000);
+  const handleVCUpdateClick = () => {
+    setIsProcessingVC(true);
+    // ウォレットサービスにリダイレクト
+    redirectToWallet('profile-edit');
   };
 
   return (
@@ -143,7 +159,7 @@ export default function ProfileEdit({ userData, onSave, onCancel }) {
 
             {/* VCから更新 */}
             <button
-              onClick={() => setShowWallet(true)}
+              onClick={handleVCUpdateClick}
               type="button"
               className="w-full inline-flex items-center justify-center space-x-2 px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
             >
@@ -162,14 +178,6 @@ export default function ProfileEdit({ userData, onSave, onCancel }) {
           </div>
         </div>
       </div>
-
-      {/* ウォレットモーダル */}
-      {showWallet && (
-        <WalletModal 
-          onClose={() => setShowWallet(false)}
-          onSubmitVC={handleVCUpdate}
-        />
-      )}
 
       {/* VC処理中のローディングオーバーレイ */}
       {isProcessingVC && (

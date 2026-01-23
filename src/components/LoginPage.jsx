@@ -1,44 +1,53 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Lock } from './Icons';
-import WalletModal from './WalletModal';
+import { redirectToWallet, getVCFromUrl, clearVCParams } from '../utils/walletRedirect';
 
 export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'vc'
-  const [showWallet, setShowWallet] = useState(false);
   const [isProcessingVC, setIsProcessingVC] = useState(false);
 
   // 本人確認が完了しているかチェック
   const isVerified = userState?.isVerified || false;
   const linkedDID = userState?.linkedDID || null;
 
+  // URLパラメータからVCデータを取得
+  useEffect(() => {
+    const vcResult = getVCFromUrl();
+    if (vcResult) {
+      if (vcResult.cancelled) {
+        // キャンセルされた場合
+        clearVCParams();
+        setError('ウォレット認証がキャンセルされました');
+        setIsProcessingVC(false);
+      } else if (vcResult.vc) {
+        // VC認証処理
+        setIsProcessingVC(true);
+        clearVCParams();
+
+        // VCのDIDチェック
+        if (vcResult.vc.did && linkedDID && vcResult.vc.did === linkedDID) {
+          setTimeout(() => {
+            onLogin(vcResult.vc);
+          }, 2000);
+        } else {
+          setIsProcessingVC(false);
+          setError('VCのDIDが登録されていないか、一致しません');
+        }
+      }
+    }
+  }, [linkedDID, onLogin]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // デモ用の簡易認証（ID: demo, パスワード: password）
     if (loginId === 'demo' && password === 'password') {
       onLogin();
     } else {
       setError('会員IDまたはパスワードが正しくありません');
-    }
-  };
-
-  const handleVCLogin = (vc) => {
-    // VCによる認証（モック）
-    // DIDが登録済みのものと一致するか確認
-    if (vc && vc.did && linkedDID && vc.did === linkedDID) {
-      setShowWallet(false);
-      setIsProcessingVC(true); // ローディング開始
-      
-      // VC情報を一緒に渡してログイン
-      setTimeout(() => {
-        onLogin(vc);
-      }, 2000); // 2秒間のローディング
-    } else {
-      setShowWallet(false);
-      setError('VCのDIDが登録されていないか、一致しません');
     }
   };
 
@@ -48,7 +57,9 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
       return;
     }
     setError('');
-    setShowWallet(true);
+    setIsProcessingVC(true);
+    // ウォレットサービスにリダイレクト
+    redirectToWallet('login');
   };
 
   return (
@@ -212,14 +223,6 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
           </div>
         )}
       </div>
-
-      {/* ウォレットモーダル */}
-      {showWallet && (
-        <WalletModal 
-          onClose={() => setShowWallet(false)}
-          onSubmitVC={handleVCLogin}
-        />
-      )}
 
       {/* VC処理中のローディングオーバーレイ */}
       {isProcessingVC && (

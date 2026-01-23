@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, UserCircle, Shield } from './Icons';
-import WalletModal from './WalletModal';
+import { redirectToWallet, getVCFromUrl, clearVCParams } from '../utils/walletRedirect';
 
 export default function SignupPage({ onSignupComplete, onBackToLogin }) {
   const [inputMethod, setInputMethod] = useState('manual'); // 'manual' or 'vc'
@@ -13,10 +13,36 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
     address: '',
     birthDate: '',
   });
-  const [showWallet, setShowWallet] = useState(false);
   const [isProcessingVC, setIsProcessingVC] = useState(false);
   const [error, setError] = useState('');
   const [vcData, setVcData] = useState(null);
+
+  // URLパラメータからVCデータを取得
+  useEffect(() => {
+    const vcResult = getVCFromUrl();
+    if (vcResult) {
+      if (vcResult.cancelled) {
+        // キャンセルされた場合
+        clearVCParams();
+        setIsProcessingVC(false);
+      } else if (vcResult.vc) {
+        // VC情報を自動入力
+        setIsProcessingVC(true);
+        clearVCParams();
+
+        setTimeout(() => {
+          setFormData(prev => ({
+            ...prev,
+            name: vcResult.vc.holderName,
+            address: vcResult.vc.address,
+            birthDate: vcResult.vc.birthDate,
+          }));
+          setVcData(vcResult.vc);
+          setIsProcessingVC(false);
+        }, 2000);
+      }
+    }
+  }, []);
 
   const handleChange = (e) => {
     setFormData({
@@ -26,21 +52,10 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
     setError('');
   };
 
-  const handleVCSubmit = (vc) => {
-    setShowWallet(false);
+  const handleVCButtonClick = () => {
     setIsProcessingVC(true);
-
-    setTimeout(() => {
-      // VCから情報を自動入力
-      setFormData({
-        ...formData,
-        name: vc.holderName,
-        address: vc.address,
-        birthDate: vc.birthDate,
-      });
-      setVcData(vc);
-      setIsProcessingVC(false);
-    }, 2000);
+    // ウォレットサービスにリダイレクト
+    redirectToWallet('signup');
   };
 
   const handleSubmit = (e) => {
@@ -177,7 +192,7 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
                   </p>
                   <button
                     type="button"
-                    onClick={() => setShowWallet(true)}
+                    onClick={handleVCButtonClick}
                     className="w-full inline-flex items-center justify-center space-x-2 px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
                   >
                     <Shield className="w-5 h-5" />
@@ -285,14 +300,6 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
           </form>
         </div>
       </div>
-
-      {/* ウォレットモーダル */}
-      {showWallet && (
-        <WalletModal 
-          onClose={() => setShowWallet(false)}
-          onSubmitVC={handleVCSubmit}
-        />
-      )}
 
       {/* VC処理中のローディングオーバーレイ */}
       {isProcessingVC && (
