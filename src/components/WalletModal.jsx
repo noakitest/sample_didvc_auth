@@ -25,7 +25,7 @@ export default function WalletModal({ onClose, onSubmitVC }) {
       expiryDate: '2031-06-01',
       holderName: '山田 太郎',
       birthDate: '1990-05-15',
-      address: '東京都渋谷区神宮前1-2-3',
+      address: '東京都新宿区西新宿2-8-1',
       did: 'did:example:123456789abcdefghi'
     }
   ];

@@ -11,6 +11,7 @@ export default function ProfileEdit({ userData, onSave, onCancel }) {
   });
   const [showWallet, setShowWallet] = useState(false);
   const [updateMethod, setUpdateMethod] = useState(null); // 'manual' or 'vc'
+  const [isProcessingVC, setIsProcessingVC] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -26,6 +27,7 @@ export default function ProfileEdit({ userData, onSave, onCancel }) {
 
   const handleVCUpdate = (vc) => {
     setShowWallet(false);
+    setIsProcessingVC(true); // ローディング開始
     setUpdateMethod('vc');
     
     // VCから情報を抽出して更新
@@ -36,7 +38,11 @@ export default function ProfileEdit({ userData, onSave, onCancel }) {
       birthDate: vc.birthDate,
     };
     
-    onSave(updatedData, 'vc', vc.did);
+    // 2秒後に更新完了
+    setTimeout(() => {
+      onSave(updatedData, 'vc', vc.did);
+      setIsProcessingVC(false); // ローディング終了
+    }, 2000);
   };
 
   return (
@@ -163,6 +169,19 @@ export default function ProfileEdit({ userData, onSave, onCancel }) {
           onClose={() => setShowWallet(false)}
           onSubmitVC={handleVCUpdate}
         />
+      )}
+
+      {/* VC処理中のローディングオーバーレイ */}
+      {isProcessingVC && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-sm mx-4 text-center">
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">VCを検証中...</h3>
+            <p className="text-sm text-gray-600">
+              プロフィール情報を更新しています
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

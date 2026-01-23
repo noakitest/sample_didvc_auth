@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import { UserCircle, CheckCircle, AlertCircle, Edit, Shield, LogOut } from './Icons';
 import WalletModal from './WalletModal';
 import ProfileEdit from './ProfileEdit';
+import { compareProfileData } from '../utils/profileComparison';
 
-export default function MyPage({ onLogout, userState, onUpdateUserState }) {
+export default function MyPage({ onLogout, userState, onUpdateUserState, vcLoginInfo }) {
   const [showWallet, setShowWallet] = useState(false);
   const [submittedVC, setSubmittedVC] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showProfileMismatch, setShowProfileMismatch] = useState(false);
+  const [profileDifferences, setProfileDifferences] = useState(null);
+  const [isProcessingVC, setIsProcessingVC] = useState(false);
   
   // ダミーデータ（初期値はuserStateから復元）
   const [userData, setUserData] = useState({
@@ -20,9 +24,35 @@ export default function MyPage({ onLogout, userState, onUpdateUserState }) {
     linkedDID: userState?.linkedDID || null
   });
 
+  // VCログイン時にプロフィール情報の差異をチェック
+  useEffect(() => {
+    if (vcLoginInfo) {
+      const currentProfile = {
+        name: userData.name,
+        birthDate: userData.birthDate,
+        address: userData.address
+      };
+      
+      const vcProfile = {
+        name: vcLoginInfo.holderName,
+        birthDate: vcLoginInfo.birthDate,
+        address: vcLoginInfo.address
+      };
+      
+      const differences = compareProfileData(currentProfile, vcProfile);
+      
+      if (differences.hasDifference) {
+        setProfileDifferences(differences);
+        setShowProfileMismatch(true);
+      }
+    }
+  }, [vcLoginInfo, userData.name, userData.address, userData.birthDate]);
+
   const handleSubmitVC = (vc) => {
     setSubmittedVC(vc);
     setShowWallet(false);
+    setIsProcessingVC(true); // ローディング開始
+    
     // 本人確認ステータスを更新し、DIDを紐付け（モック）
     setTimeout(() => {
       const newUserData = { 
@@ -36,7 +66,8 @@ export default function MyPage({ onLogout, userState, onUpdateUserState }) {
         isVerified: true,
         linkedDID: vc.did
       });
-    }, 1000);
+      setIsProcessingVC(false); // ローディング終了
+    }, 2000); // 2秒間のローディング
   };
 
   const handleProfileSave = (formData, method, did = null) => {
@@ -66,8 +97,28 @@ export default function MyPage({ onLogout, userState, onUpdateUserState }) {
         isVerified: true,
         linkedDID: did || userData.linkedDID
       });
+      setShowProfileMismatch(false); // 更新後は警告を非表示
     }
     setIsEditing(false);
+  };
+
+  const handleUpdateFromVC = () => {
+    if (vcLoginInfo) {
+      const updatedData = {
+        name: vcLoginInfo.holderName,
+        email: userData.email,
+        address: vcLoginInfo.address,
+        birthDate: vcLoginInfo.birthDate,
+      };
+      
+      const newUserData = {
+        ...userData,
+        ...updatedData,
+      };
+      
+      setUserData(newUserData);
+      setShowProfileMismatch(false);
+    }
   };
 
   // 編集画面を表示中は編集画面を返す
@@ -215,6 +266,56 @@ export default function MyPage({ onLogout, userState, onUpdateUserState }) {
           </p>
         </div>
 
+        {/* プロフィール差異警告 */}
+        {showProfileMismatch && vcLoginInfo && profileDifferences && (
+          <div className="mt-6 p-4 bg-orange-50 border-2 border-orange-300 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="text-orange-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-orange-900 font-bold mb-2">
+                  プロフィール情報の差異が検出されました
+                </p>
+                <p className="text-sm text-orange-800 mb-3">
+                  ログインに使用したVCの情報と登録されているプロフィール情報が異なります。
+                  最新の情報に更新することをお勧めします。
+                </p>
+                <div className="bg-white rounded p-3 mb-3 text-xs">
+                  <p className="font-semibold text-gray-700 mb-2">差異がある項目：</p>
+                  {profileDifferences.name && (
+                    <p className="text-gray-600 mb-1">
+                      • 氏名: 登録「{profileDifferences.details.name.original}」→ VC「{profileDifferences.details.name.incoming}」
+                    </p>
+                  )}
+                  {profileDifferences.address && (
+                    <p className="text-gray-600 mb-1">
+                      • 住所: 登録「{profileDifferences.details.address.original}」→ VC「{profileDifferences.details.address.incoming}」
+                    </p>
+                  )}
+                  {profileDifferences.birthDate && (
+                    <p className="text-gray-600 mb-1">
+                      • 生年月日: 登録「{profileDifferences.details.birthDate.original}」→ VC「{profileDifferences.details.birthDate.incoming}」
+                    </p>
+                  )}
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleUpdateFromVC}
+                    className="px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors"
+                  >
+                    VCの情報で更新する
+                  </button>
+                  <button
+                    onClick={() => setShowProfileMismatch(false)}
+                    className="px-4 py-2 bg-white border border-orange-300 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-50 transition-colors"
+                  >
+                    後で確認する
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* VC提出成功メッセージ */}
         {submittedVC && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -239,6 +340,19 @@ export default function MyPage({ onLogout, userState, onUpdateUserState }) {
           onClose={() => setShowWallet(false)}
           onSubmitVC={handleSubmitVC}
         />
+      )}
+
+      {/* VC処理中のローディングオーバーレイ */}
+      {isProcessingVC && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-sm mx-4 text-center">
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">VCを検証中...</h3>
+            <p className="text-sm text-gray-600">
+              身分証明書の内容を確認しています
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Lock } from './Icons';
 import WalletModal from './WalletModal';
 
-export default function LoginPage({ onLogin, userState }) {
+export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'vc'
   const [showWallet, setShowWallet] = useState(false);
+  const [isProcessingVC, setIsProcessingVC] = useState(false);
 
   // 本人確認が完了しているかチェック
   const isVerified = userState?.isVerified || false;
@@ -29,7 +30,12 @@ export default function LoginPage({ onLogin, userState }) {
     // DIDが登録済みのものと一致するか確認
     if (vc && vc.did && linkedDID && vc.did === linkedDID) {
       setShowWallet(false);
-      onLogin();
+      setIsProcessingVC(true); // ローディング開始
+      
+      // VC情報を一緒に渡してログイン
+      setTimeout(() => {
+        onLogin(vc);
+      }, 2000); // 2秒間のローディング
     } else {
       setShowWallet(false);
       setError('VCのDIDが登録されていないか、一致しません');
@@ -129,6 +135,19 @@ export default function LoginPage({ onLogin, userState }) {
                 デモ用: ID「demo」/ パスワード「password」
               </p>
             </div>
+
+            <div className="text-center pt-4 border-t">
+              <p className="text-sm text-gray-600">
+                アカウントをお持ちでない方は
+              </p>
+              <button
+                type="button"
+                onClick={onNavigateToSignup}
+                className="mt-2 text-blue-600 hover:text-blue-700 font-medium"
+              >
+                新規会員登録はこちら
+              </button>
+            </div>
           </form>
         )}
 
@@ -200,6 +219,19 @@ export default function LoginPage({ onLogin, userState }) {
           onClose={() => setShowWallet(false)}
           onSubmitVC={handleVCLogin}
         />
+      )}
+
+      {/* VC処理中のローディングオーバーレイ */}
+      {isProcessingVC && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-sm mx-4 text-center">
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">VCを検証中...</h3>
+            <p className="text-sm text-gray-600">
+              身分証明書の内容を確認しています
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );
