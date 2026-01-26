@@ -27,6 +27,13 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
         setIsProcessingVC(true);
         clearVCParams();
 
+        // デバッグログ
+        console.log('=== VC認証デバッグ ===');
+        console.log('VCのDID:', vcResult.vc.did);
+        console.log('登録済みDID:', linkedDID);
+        console.log('userState:', userState);
+        console.log('一致判定:', vcResult.vc.did === linkedDID);
+
         // VCのDIDチェック
         if (vcResult.vc.did && linkedDID && vcResult.vc.did === linkedDID) {
           setTimeout(() => {
@@ -34,11 +41,11 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
           }, 2000);
         } else {
           setIsProcessingVC(false);
-          setError('VCのDIDが登録されていないか、一致しません');
+          setError(`VCのDIDが登録されていないか、一致しません（VC: ${vcResult.vc.did}, 登録: ${linkedDID || 'なし'}）`);
         }
       }
     }
-  }, [linkedDID, onLogin]);
+  }, [linkedDID, onLogin, userState]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
