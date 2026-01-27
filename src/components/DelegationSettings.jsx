@@ -75,9 +75,17 @@ export default function DelegationSettings({ userData, userState, onBack }) {
 
   // 委任状を取り消し
   const handleRevoke = (vcId) => {
+    // 発行済みリストから削除
     const newIssuedDelegations = issuedDelegations.filter(d => d.id !== vcId);
     setIssuedDelegations(newIssuedDelegations);
     localStorage.setItem('issued_delegations', JSON.stringify(newIssuedDelegations));
+
+    // 失効リストに追加（代理ログイン時の検証用）
+    const revokedList = JSON.parse(localStorage.getItem('revoked_delegations') || '[]');
+    if (!revokedList.includes(vcId)) {
+      revokedList.push(vcId);
+      localStorage.setItem('revoked_delegations', JSON.stringify(revokedList));
+    }
   };
 
   // スコープの切り替え

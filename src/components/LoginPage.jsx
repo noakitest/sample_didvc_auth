@@ -56,6 +56,14 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
 
         // 委任者のDIDがサービスに登録されているかチェック
         if (delegationVC.issuer?.did && linkedDID && delegationVC.issuer.did === linkedDID) {
+          // 失効リストのチェック
+          const revokedList = JSON.parse(localStorage.getItem('revoked_delegations') || '[]');
+          if (delegationVC.id && revokedList.includes(delegationVC.id)) {
+            setIsProcessingVC(false);
+            setError('この委任状は取り消されています。委任者に新しい委任状の発行を依頼してください。');
+            return;
+          }
+
           // 有効期限チェック
           const today = new Date().toISOString().split('T')[0];
           if (delegationVC.expiryDate < today) {
