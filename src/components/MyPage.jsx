@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { UserCircle, CheckCircle, AlertCircle, Edit, Shield, LogOut } from './Icons';
+import { UserCircle, CheckCircle, AlertCircle, Edit, Shield, LogOut, Users } from './Icons';
 import ProfileEdit from './ProfileEdit';
 import { compareProfileData } from '../utils/profileComparison';
 import { redirectToWallet, getVCFromUrl, clearVCParams } from '../utils/walletRedirect';
 
-export default function MyPage({ onLogout, userState, onUpdateUserState, vcLoginInfo }) {
+export default function MyPage({ onLogout, userState, onUpdateUserState, vcLoginInfo, delegationLoginInfo, onNavigateToDelegation }) {
   const [submittedVC, setSubmittedVC] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showProfileMismatch, setShowProfileMismatch] = useState(false);
@@ -149,22 +149,54 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* ヘッダー */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">マイページ</h1>
-            <p className="text-gray-600 mt-2">アカウント情報の確認と管理</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* 代理ログイン中バナー */}
+      {delegationLoginInfo && (
+        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-3">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-medium">
+                  代理ログイン中: {delegationLoginInfo.issuer?.name || '不明'}さん
+                </p>
+                <p className="text-sm text-purple-100">
+                  権限: {delegationLoginInfo.scope?.join(', ') || '閲覧'} / 期限: {delegationLoginInfo.expiryDate}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onLogout}
+              className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
+            >
+              代理ログアウト
+            </button>
           </div>
-          <button
-            onClick={onLogout}
-            className="inline-flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>ログアウト</span>
-          </button>
         </div>
+      )}
+
+      <div className="py-8 px-4">
+        <div className="max-w-2xl mx-auto">
+          {/* ヘッダー */}
+          <div className="mb-8 flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">マイページ</h1>
+              <p className="text-gray-600 mt-2">
+                {delegationLoginInfo ? '代理人としてアカウント情報を閲覧中' : 'アカウント情報の確認と管理'}
+              </p>
+            </div>
+            {!delegationLoginInfo && (
+              <button
+                onClick={onLogout}
+                className="inline-flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>ログアウト</span>
+              </button>
+            )}
+          </div>
 
         {/* メインカード */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -245,21 +277,32 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
 
                 {/* アクションボタン */}
                 <div className="flex flex-wrap gap-3">
-                  <button 
+                  <button
                     onClick={() => setIsEditing(true)}
                     className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                    disabled={delegationLoginInfo && !delegationLoginInfo.scope?.includes('edit')}
                   >
                     <Edit className="w-5 h-5" />
                     <span>プロフィール変更</span>
                   </button>
-                  
-                  {!userData.isVerified && (
+
+                  {!userData.isVerified && !delegationLoginInfo && (
                     <button
                       onClick={handleVerifyIdentity}
                       className="inline-flex items-center space-x-2 px-6 py-3 bg-white text-gray-700 font-medium rounded-lg border-2 border-gray-300 hover:bg-gray-50 transition-colors"
                     >
                       <Shield className="w-5 h-5" />
                       <span>本人確認を開始</span>
+                    </button>
+                  )}
+
+                  {userData.isVerified && !delegationLoginInfo && (
+                    <button
+                      onClick={onNavigateToDelegation}
+                      className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors shadow-sm"
+                    >
+                      <Users className="w-5 h-5" />
+                      <span>代理人設定</span>
                     </button>
                   )}
                 </div>
@@ -348,6 +391,7 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* VC処理中のローディングオーバーレイ */}

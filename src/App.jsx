@@ -2,6 +2,7 @@ import { useState } from 'react';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 import MyPage from './components/MyPage';
+import DelegationSettings from './components/DelegationSettings';
 
 function App() {
   const [currentView, setCurrentView] = useState(() => {
@@ -18,11 +19,25 @@ function App() {
     return savedState ? JSON.parse(savedState) : null;
   });
   const [vcLoginInfo, setVcLoginInfo] = useState(null); // VCログイン時の情報
+  const [delegationLoginInfo, setDelegationLoginInfo] = useState(null); // 代理ログイン時の委任状情報
 
+  // 通常ログイン
   const handleLogin = (vcInfo = null) => {
     setIsLoggedIn(true);
     setCurrentView('mypage');
     setVcLoginInfo(vcInfo); // VCでログインした場合はVC情報を保持
+    setDelegationLoginInfo(null);
+    // ログイン状態を保存
+    localStorage.setItem('isLoggedIn', 'true');
+    localStorage.setItem('currentView', 'mypage');
+  };
+
+  // 代理ログイン
+  const handleDelegationLogin = (delegationVC) => {
+    setIsLoggedIn(true);
+    setCurrentView('mypage');
+    setVcLoginInfo(null);
+    setDelegationLoginInfo(delegationVC);
     // ログイン状態を保存
     localStorage.setItem('isLoggedIn', 'true');
     localStorage.setItem('currentView', 'mypage');
@@ -32,6 +47,7 @@ function App() {
     setIsLoggedIn(false);
     setCurrentView('login');
     setVcLoginInfo(null);
+    setDelegationLoginInfo(null);
     // ログイン状態をクリア
     localStorage.removeItem('isLoggedIn');
     localStorage.setItem('currentView', 'login');
@@ -63,29 +79,52 @@ function App() {
     localStorage.setItem('currentView', 'mypage');
   };
 
+  // ユーザーデータ（MyPageとDelegationSettingsで共有）
+  const userData = {
+    memberId: 'M123456789',
+    name: '山田 太郎',
+    email: 'yamada.taro@example.com',
+    address: '〒150-0001 東京都渋谷区神宮前1-2-3',
+    birthDate: '1990年5月15日',
+    password: '************',
+    isVerified: userState?.isVerified || false,
+    linkedDID: userState?.linkedDID || null
+  };
+
   return (
     <>
       {currentView === 'login' && (
-        <LoginPage 
+        <LoginPage
           onLogin={handleLogin}
+          onDelegationLogin={handleDelegationLogin}
           userState={userState}
           onNavigateToSignup={() => setCurrentView('signup')}
         />
       )}
-      
+
       {currentView === 'signup' && (
         <SignupPage
           onSignupComplete={handleSignupComplete}
           onBackToLogin={() => setCurrentView('login')}
         />
       )}
-      
+
       {currentView === 'mypage' && isLoggedIn && (
-        <MyPage 
+        <MyPage
           onLogout={handleLogout}
           userState={userState}
           onUpdateUserState={handleUpdateUserState}
           vcLoginInfo={vcLoginInfo}
+          delegationLoginInfo={delegationLoginInfo}
+          onNavigateToDelegation={() => setCurrentView('delegation')}
+        />
+      )}
+
+      {currentView === 'delegation' && isLoggedIn && !delegationLoginInfo && (
+        <DelegationSettings
+          userData={userData}
+          userState={userState}
+          onBack={() => setCurrentView('mypage')}
         />
       )}
     </>

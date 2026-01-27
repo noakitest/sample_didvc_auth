@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Lock } from './Icons';
+import { Lock, Users } from './Icons';
 import { redirectToWallet, getVCFromUrl, clearVCParams } from '../utils/walletRedirect';
 
-export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
+export default function LoginPage({ onLogin, onDelegationLogin, userState, onNavigateToSignup }) {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loginMethod, setLoginMethod] = useState('password'); // 'password' or 'vc'
+  const [loginMethod, setLoginMethod] = useState('password'); // 'password', 'vc', 'delegation'
   const [isProcessingVC, setIsProcessingVC] = useState(false);
 
   // 本人確認が完了しているかチェック
@@ -22,8 +22,8 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
         clearVCParams();
         setError('ウォレット認証がキャンセルされました');
         setIsProcessingVC(false);
-      } else if (vcResult.vc) {
-        // VC認証処理
+      } else if (vcResult.vc && vcResult.requestId === 'login') {
+        // 通常のVC認証処理
         setIsProcessingVC(true);
         clearVCParams();
 
@@ -43,9 +43,38 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
           setIsProcessingVC(false);
           setError(`VCのDIDが登録されていないか、一致しません（VC: ${vcResult.vc.did}, 登録: ${linkedDID || 'なし'}）`);
         }
+      } else if (vcResult.vc && vcResult.requestId === 'delegation-login') {
+        // 代理ログイン処理
+        setIsProcessingVC(true);
+        clearVCParams();
+
+        const delegationVC = vcResult.vc;
+
+        // 委任状VCの検証
+        console.log('=== 代理ログイン検証 ===');
+        console.log('委任状VC:', delegationVC);
+        console.log('登録済みDID:', linkedDID);
+
+        // 委任者のDIDが登録済みDIDと一致するかチェック
+        if (delegationVC.issuer?.did && linkedDID && delegationVC.issuer.did === linkedDID) {
+          // 有効期限チェック
+          const today = new Date().toISOString().split('T')[0];
+          if (delegationVC.expiryDate < today) {
+            setIsProcessingVC(false);
+            setError('この委任状は有効期限が切れています');
+            return;
+          }
+
+          setTimeout(() => {
+            onDelegationLogin(delegationVC);
+          }, 2000);
+        } else {
+          setIsProcessingVC(false);
+          setError(`委任者のDIDがこのアカウントに登録されていません（委任者: ${delegationVC.issuer?.did}, 登録: ${linkedDID || 'なし'}）`);
+        }
       }
     }
-  }, [linkedDID, onLogin, userState]);
+  }, [linkedDID, onLogin, onDelegationLogin, userState]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -69,6 +98,17 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
     redirectToWallet('login');
   };
 
+  const handleDelegationLoginClick = () => {
+    if (!isVerified) {
+      setError('代理ログインを利用するには、本人（委任者）が先に本人確認を完了している必要があります');
+      return;
+    }
+    setError('');
+    setIsProcessingVC(true);
+    // ウォレットサービスにリダイレクト（代理ログインモード）
+    redirectToWallet('delegation-login');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center px-4">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
@@ -83,8 +123,8 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
         {/* ログイン方法タブ */}
         <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
           <button
-            onClick={() => setLoginMethod('password')}
-            className={`flex-1 py-2 px-4 rounded-md font-medium transition-colors ${
+            onClick={() => { setLoginMethod('password'); setError(''); }}
+            className={`flex-1 py-2 px-2 rounded-md font-medium transition-colors text-sm ${
               loginMethod === 'password'
                 ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
@@ -93,14 +133,24 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
             ID/パスワード
           </button>
           <button
-            onClick={() => setLoginMethod('vc')}
-            className={`flex-1 py-2 px-4 rounded-md font-medium transition-colors ${
+            onClick={() => { setLoginMethod('vc'); setError(''); }}
+            className={`flex-1 py-2 px-2 rounded-md font-medium transition-colors text-sm ${
               loginMethod === 'vc'
                 ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             VC認証
+          </button>
+          <button
+            onClick={() => { setLoginMethod('delegation'); setError(''); }}
+            className={`flex-1 py-2 px-2 rounded-md font-medium transition-colors text-sm ${
+              loginMethod === 'delegation'
+                ? 'bg-white text-purple-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            代理ログイン
           </button>
         </div>
 
@@ -229,6 +279,52 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
             )}
           </div>
         )}
+
+        {/* 代理ログイン */}
+        {loginMethod === 'delegation' && (
+          <div className="space-y-6">
+            <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">代理ログイン</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                委任状VCを使って、本人に代わりログインします
+              </p>
+
+              {isVerified ? (
+                <button
+                  onClick={handleDelegationLoginClick}
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-sm"
+                >
+                  ウォレットから委任状を提出
+                </button>
+              ) : (
+                <div className="text-left bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-yellow-800">
+                    代理ログインを利用するには、本人（委任者）がこのサービスで本人確認を完了している必要があります。
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">代理ログインの流れ</h4>
+              <ol className="text-xs text-gray-600 space-y-1">
+                <li>1. 本人が委任状VCを発行してあなたに渡す</li>
+                <li>2. あなたのウォレットで委任状VCを受け取る</li>
+                <li>3. 「ウォレットから委任状を提出」をクリック</li>
+                <li>4. 委任状VCを選択して提出</li>
+              </ol>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* VC処理中のローディングオーバーレイ */}
@@ -236,9 +332,11 @@ export default function LoginPage({ onLogin, userState, onNavigateToSignup }) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-8 max-w-sm mx-4 text-center">
             <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">VCを検証中...</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              {loginMethod === 'delegation' ? '委任状を検証中...' : 'VCを検証中...'}
+            </h3>
             <p className="text-sm text-gray-600">
-              身分証明書の内容を確認しています
+              {loginMethod === 'delegation' ? '委任状の内容を確認しています' : '身分証明書の内容を確認しています'}
             </p>
           </div>
         </div>
