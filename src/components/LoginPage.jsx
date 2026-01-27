@@ -9,8 +9,7 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
   const [loginMethod, setLoginMethod] = useState('password'); // 'password', 'vc', 'delegation'
   const [isProcessingVC, setIsProcessingVC] = useState(false);
 
-  // 本人確認が完了しているかチェック
-  const isVerified = userState?.isVerified || false;
+  // 登録済みDID（本人確認完了済みユーザーのDID）
   const linkedDID = userState?.linkedDID || null;
 
   // URLパラメータからVCデータを取得
@@ -34,14 +33,14 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
         console.log('userState:', userState);
         console.log('一致判定:', vcResult.vc.did === linkedDID);
 
-        // VCのDIDチェック
+        // VCのDIDがサービスに登録されているかチェック
         if (vcResult.vc.did && linkedDID && vcResult.vc.did === linkedDID) {
           setTimeout(() => {
             onLogin(vcResult.vc);
           }, 2000);
         } else {
           setIsProcessingVC(false);
-          setError(`VCのDIDが登録されていないか、一致しません（VC: ${vcResult.vc.did}, 登録: ${linkedDID || 'なし'}）`);
+          setError('このVCに紐づくアカウントが見つかりません。先にID/パスワードでログインし、本人確認を完了してください。');
         }
       } else if (vcResult.vc && vcResult.requestId === 'delegation-login') {
         // 代理ログイン処理
@@ -55,7 +54,7 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
         console.log('委任状VC:', delegationVC);
         console.log('登録済みDID:', linkedDID);
 
-        // 委任者のDIDが登録済みDIDと一致するかチェック
+        // 委任者のDIDがサービスに登録されているかチェック
         if (delegationVC.issuer?.did && linkedDID && delegationVC.issuer.did === linkedDID) {
           // 有効期限チェック
           const today = new Date().toISOString().split('T')[0];
@@ -70,7 +69,7 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
           }, 2000);
         } else {
           setIsProcessingVC(false);
-          setError(`委任者のDIDがこのアカウントに登録されていません（委任者: ${delegationVC.issuer?.did}, 登録: ${linkedDID || 'なし'}）`);
+          setError('委任者（本人）がこのサービスで本人確認を完了していません。委任者に本人確認を依頼してください。');
         }
       }
     }
@@ -88,10 +87,6 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
   };
 
   const handleVCAuthClick = () => {
-    if (!isVerified) {
-      setError('VC認証を利用するには、先にID/パスワードでログインして本人確認を完了してください');
-      return;
-    }
     setError('');
     setIsProcessingVC(true);
     // ウォレットサービスにリダイレクト
@@ -99,10 +94,6 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
   };
 
   const handleDelegationLoginClick = () => {
-    if (!isVerified) {
-      setError('代理ログインを利用するには、本人（委任者）が先に本人確認を完了している必要があります');
-      return;
-    }
     setError('');
     setIsProcessingVC(true);
     // ウォレットサービスにリダイレクト（代理ログインモード）
@@ -222,55 +213,31 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
         {/* VC認証 */}
         {loginMethod === 'vc' && (
           <div className="space-y-6">
-            {isVerified ? (
-              <>
-                <div className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
-                      <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
-                      <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path>
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Verifiable Credential認証</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    デジタルウォレットから身分証VCを提出してログインします
-                  </p>
-                  <button
-                    onClick={handleVCAuthClick}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm"
-                  >
-                    ウォレットを開く
-                  </button>
-                </div>
-
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">
-                    DIDによる分散型認証を利用します
-                  </p>
-                </div>
-              </>
-            ) : (
-              <div className="p-6 bg-yellow-50 border-2 border-yellow-200 rounded-lg text-center">
-                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                  </svg>
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">本人確認が必要です</h3>
-                <p className="text-sm text-gray-700 mb-4">
-                  VC認証を利用するには、まずID/パスワードでログインして本人確認を完了してください。
-                </p>
-                <button
-                  onClick={() => setLoginMethod('password')}
-                  className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-                >
-                  ID/パスワードログインに戻る →
-                </button>
+            <div className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                  <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
+                  <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
+                  <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path>
+                </svg>
               </div>
-            )}
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Verifiable Credential認証</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                デジタルウォレットから身分証VCを提出してログインします
+              </p>
+              <button
+                onClick={handleVCAuthClick}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm"
+              >
+                ウォレットを開く
+              </button>
+            </div>
+
+            <div className="text-center">
+              <p className="text-sm text-gray-600">
+                DIDによる分散型認証を利用します
+              </p>
+            </div>
 
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -291,21 +258,12 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
               <p className="text-sm text-gray-600 mb-4">
                 委任状VCを使って、本人に代わりログインします
               </p>
-
-              {isVerified ? (
-                <button
-                  onClick={handleDelegationLoginClick}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-sm"
-                >
-                  ウォレットから委任状を提出
-                </button>
-              ) : (
-                <div className="text-left bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-yellow-800">
-                    代理ログインを利用するには、本人（委任者）がこのサービスで本人確認を完了している必要があります。
-                  </p>
-                </div>
-              )}
+              <button
+                onClick={handleDelegationLoginClick}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-sm"
+              >
+                ウォレットから委任状を提出
+              </button>
             </div>
 
             <div className="bg-gray-50 rounded-lg p-4">
