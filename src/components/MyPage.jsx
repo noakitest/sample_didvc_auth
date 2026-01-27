@@ -152,7 +152,7 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
     <div className="min-h-screen bg-gray-50">
       {/* 代理ログイン中バナー */}
       {delegationLoginInfo && (
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-3">
+        <div className="sticky top-0 z-40 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-3 shadow-md">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
