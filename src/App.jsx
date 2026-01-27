@@ -98,14 +98,20 @@ function App() {
           onLogin={handleLogin}
           onDelegationLogin={handleDelegationLogin}
           userState={userState}
-          onNavigateToSignup={() => setCurrentView('signup')}
+          onNavigateToSignup={() => {
+            setCurrentView('signup');
+            localStorage.setItem('currentView', 'signup');
+          }}
         />
       )}
 
       {currentView === 'signup' && (
         <SignupPage
           onSignupComplete={handleSignupComplete}
-          onBackToLogin={() => setCurrentView('login')}
+          onBackToLogin={() => {
+            setCurrentView('login');
+            localStorage.setItem('currentView', 'login');
+          }}
         />
       )}
 
@@ -116,7 +122,10 @@ function App() {
           onUpdateUserState={handleUpdateUserState}
           vcLoginInfo={vcLoginInfo}
           delegationLoginInfo={delegationLoginInfo}
-          onNavigateToDelegation={() => setCurrentView('delegation')}
+          onNavigateToDelegation={() => {
+            setCurrentView('delegation');
+            localStorage.setItem('currentView', 'delegation');
+          }}
         />
       )}
 
@@ -124,7 +133,10 @@ function App() {
         <DelegationSettings
           userData={userData}
           userState={userState}
-          onBack={() => setCurrentView('mypage')}
+          onBack={() => {
+            setCurrentView('mypage');
+            localStorage.setItem('currentView', 'mypage');
+          }}
         />
       )}
     </>
