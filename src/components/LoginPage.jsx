@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Lock, Users } from './Icons';
+import { Lock, Users, Shield } from './Icons';
 import { redirectToWallet, getVCFromUrl, clearVCParams } from '../utils/walletRedirect';
 
 export default function LoginPage({ onLogin, onDelegationLogin, userState, onNavigateToSignup }) {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loginMethod, setLoginMethod] = useState('password'); // 'password', 'vc', 'delegation'
+  const [loginMethod, setLoginMethod] = useState('password'); // 'password', 'did', 'vc', 'delegation'
   const [isProcessingVC, setIsProcessingVC] = useState(false);
 
   // 登録済みDID（本人確認完了済みユーザーのDID）
@@ -21,12 +21,30 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
         clearVCParams();
         setError('ウォレット認証がキャンセルされました');
         setIsProcessingVC(false);
+      } else if (vcResult.vc && vcResult.requestId === 'did-auth') {
+        // DID認証処理
+        setIsProcessingVC(true);
+        setLoginMethod('did');
+        clearVCParams();
+
+        console.log('=== DID認証デバッグ ===');
+        console.log('送信されたDID:', vcResult.vc.did);
+        console.log('登録済みDID:', linkedDID);
+
+        if (vcResult.vc.did && linkedDID && vcResult.vc.did === linkedDID) {
+          setTimeout(() => {
+            onLogin(null);
+          }, 2000);
+        } else {
+          setIsProcessingVC(false);
+          setError('このDIDに紐づくアカウントが見つかりません。先にID/パスワードでログインし、本人確認を完了してください。');
+        }
       } else if (vcResult.vc && vcResult.requestId === 'login') {
         // 通常のVC認証処理
         setIsProcessingVC(true);
+        setLoginMethod('vc');
         clearVCParams();
 
-        // デバッグログ
         console.log('=== VC認証デバッグ ===');
         console.log('VCのDID:', vcResult.vc.did);
         console.log('登録済みDID:', linkedDID);
@@ -45,11 +63,11 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
       } else if (vcResult.vc && vcResult.requestId === 'delegation-login') {
         // 代理ログイン処理
         setIsProcessingVC(true);
+        setLoginMethod('delegation');
         clearVCParams();
 
         const delegationVC = vcResult.vc;
 
-        // 委任状VCの検証
         console.log('=== 代理ログイン検証 ===');
         console.log('委任状VC:', delegationVC);
         console.log('登録済みDID:', linkedDID);
@@ -94,6 +112,12 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
     }
   };
 
+  const handleDIDAuthClick = () => {
+    setError('');
+    setIsProcessingVC(true);
+    redirectToWallet('did-auth');
+  };
+
   const handleVCAuthClick = () => {
     setError('');
     setIsProcessingVC(true);
@@ -106,6 +130,18 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
     setIsProcessingVC(true);
     // ウォレットサービスにリダイレクト（代理ログインモード）
     redirectToWallet('delegation-login');
+  };
+
+  // ローディングオーバーレイのテキスト
+  const getProcessingText = () => {
+    switch (loginMethod) {
+      case 'did':
+        return { title: 'DIDを検証中...', desc: 'DIDの所有を確認しています' };
+      case 'delegation':
+        return { title: '委任状を検証中...', desc: '委任状の内容を確認しています' };
+      default:
+        return { title: 'VCを検証中...', desc: '身分証明書の内容を確認しています' };
+    }
   };
 
   return (
@@ -123,17 +159,27 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
         <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
           <button
             onClick={() => { setLoginMethod('password'); setError(''); }}
-            className={`flex-1 py-2 px-2 rounded-md font-medium transition-colors text-sm ${
+            className={`flex-1 py-2 px-1 rounded-md font-medium transition-colors text-xs ${
               loginMethod === 'password'
                 ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            ID/パスワード
+            ID/PW
+          </button>
+          <button
+            onClick={() => { setLoginMethod('did'); setError(''); }}
+            className={`flex-1 py-2 px-1 rounded-md font-medium transition-colors text-xs ${
+              loginMethod === 'did'
+                ? 'bg-white text-cyan-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            DID認証
           </button>
           <button
             onClick={() => { setLoginMethod('vc'); setError(''); }}
-            className={`flex-1 py-2 px-2 rounded-md font-medium transition-colors text-sm ${
+            className={`flex-1 py-2 px-1 rounded-md font-medium transition-colors text-xs ${
               loginMethod === 'vc'
                 ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
@@ -143,13 +189,13 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
           </button>
           <button
             onClick={() => { setLoginMethod('delegation'); setError(''); }}
-            className={`flex-1 py-2 px-2 rounded-md font-medium transition-colors text-sm ${
+            className={`flex-1 py-2 px-1 rounded-md font-medium transition-colors text-xs ${
               loginMethod === 'delegation'
                 ? 'bg-white text-purple-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            代理ログイン
+            代理
           </button>
         </div>
 
@@ -216,6 +262,43 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
               </button>
             </div>
           </form>
+        )}
+
+        {/* DID認証 */}
+        {loginMethod === 'did' && (
+          <div className="space-y-6">
+            <div className="p-6 bg-gradient-to-br from-cyan-50 to-blue-50 border-2 border-cyan-200 rounded-lg text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">DID認証</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                ウォレットのDIDを提示してログインします。
+                個人情報の送信は不要です。
+              </p>
+              <button
+                onClick={handleDIDAuthClick}
+                className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-medium py-3 rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all shadow-sm"
+              >
+                ウォレットで認証
+              </button>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">DID認証とは</h4>
+              <ul className="text-xs text-gray-600 space-y-1">
+                <li>- DID（分散型識別子）の所有を証明してログイン</li>
+                <li>- 身分証VCの個人情報は送信されません</li>
+                <li>- 事前にID/PWログイン後の本人確認が必要です</li>
+              </ul>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+          </div>
         )}
 
         {/* VC認証 */}
@@ -299,10 +382,10 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
           <div className="bg-white rounded-lg p-8 max-w-sm mx-4 text-center">
             <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
             <h3 className="text-lg font-bold text-gray-900 mb-2">
-              {loginMethod === 'delegation' ? '委任状を検証中...' : 'VCを検証中...'}
+              {getProcessingText().title}
             </h3>
             <p className="text-sm text-gray-600">
-              {loginMethod === 'delegation' ? '委任状の内容を確認しています' : '身分証明書の内容を確認しています'}
+              {getProcessingText().desc}
             </p>
           </div>
         </div>
