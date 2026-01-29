@@ -102,7 +102,7 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
           {/* ヘッダー */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mb-4">
-              <UserCircle className="text-white" />
+              <UserCircle className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900">新規会員登録</h1>
             <p className="text-gray-600 mt-2">アカウント情報を入力してください</p>
