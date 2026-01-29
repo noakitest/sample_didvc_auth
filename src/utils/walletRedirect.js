@@ -1,10 +1,21 @@
-// ウォレットサービスのURL
-const WALLET_SERVICE_URL = 'http://localhost:3001';
+// デフォルトのウォレットサービスURL
+const DEFAULT_WALLET_URL = 'http://localhost:3001';
+const STORAGE_KEY = 'wallet_service_url';
+
+// 現在のウォレットURLを取得
+export const getWalletUrl = () => {
+  return localStorage.getItem(STORAGE_KEY) || DEFAULT_WALLET_URL;
+};
+
+// ウォレットURLを設定
+export const setWalletUrl = (url) => {
+  localStorage.setItem(STORAGE_KEY, url);
+};
 
 // ウォレットサービスにリダイレクトする
 export const redirectToWallet = (requestId) => {
   const callbackUrl = `${window.location.origin}${window.location.pathname}`;
-  const walletUrl = `${WALLET_SERVICE_URL}?callback=${encodeURIComponent(callbackUrl)}&requestId=${requestId}`;
+  const walletUrl = `${getWalletUrl()}?callback=${encodeURIComponent(callbackUrl)}&requestId=${requestId}`;
   window.location.href = walletUrl;
 };
 

@@ -3,6 +3,7 @@ import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 import MyPage from './components/MyPage';
 import DelegationSettings from './components/DelegationSettings';
+import WalletSelector from './components/WalletSelector';
 
 function App() {
   const [currentView, setCurrentView] = useState(() => {
@@ -93,6 +94,7 @@ function App() {
 
   return (
     <>
+      <WalletSelector />
       {currentView === 'login' && (
         <LoginPage
           onLogin={handleLogin}
