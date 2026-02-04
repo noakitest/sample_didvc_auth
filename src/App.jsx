@@ -60,9 +60,6 @@ function App() {
   };
 
   const handleSignupComplete = (signupData) => {
-    // サインアップ完了後、会員IDを生成（モック）
-    const memberId = 'M' + Math.floor(Math.random() * 1000000000);
-
     // VCから登録した場合は本人確認済みとして状態を保存
     if (signupData.isVerified && signupData.vcData) {
       const newUserState = {

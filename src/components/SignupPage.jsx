@@ -9,7 +9,6 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
     password: '',
     confirmPassword: '',
     name: '',
-    email: '',
     address: '',
     birthDate: '',
   });
@@ -63,7 +62,7 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
     setError('');
 
     // バリデーション
-    if (!formData.loginId || !formData.password || !formData.name || !formData.email) {
+    if (!formData.loginId || !formData.password || !formData.name) {
       setError('必須項目を入力してください');
       return;
     }
@@ -140,15 +139,15 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ログインID <span className="text-red-500">*</span>
+                  メールアドレス（ログインID） <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="text"
+                  type="email"
                   name="loginId"
                   value={formData.loginId}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  placeholder="例: user123"
+                  placeholder="例: user@example.com"
                 />
               </div>
 
@@ -231,20 +230,6 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
                     inputMethod === 'vc' && vcData ? 'bg-gray-50' : ''
                   }`}
                   placeholder="例: 山田 太郎"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  メールアドレス <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  placeholder="例: example@example.com"
                 />
               </div>
 

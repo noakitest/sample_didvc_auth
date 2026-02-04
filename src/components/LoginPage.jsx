@@ -104,11 +104,11 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // デモ用の簡易認証（ID: demo, パスワード: password）
-    if (loginId === 'demo' && password === 'password') {
+    // デモ用の簡易認証
+    if (loginId === 'demo@example.com' && password === 'password') {
       onLogin();
     } else {
-      setError('会員IDまたはパスワードが正しくありません');
+      setError('メールアドレスまたはパスワードが正しくありません');
     }
   };
 
@@ -204,14 +204,14 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                会員ID
+                メールアドレス
               </label>
               <input
-                type="text"
+                type="email"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                placeholder="会員IDを入力"
+                placeholder="メールアドレスを入力"
                 required
               />
             </div>
@@ -245,7 +245,7 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
 
             <div className="text-center">
               <p className="text-sm text-gray-600">
-                デモ用: ID「demo」/ パスワード「password」
+                デモ用: 「demo@example.com」/ パスワード「password」
               </p>
             </div>
 

@@ -220,19 +220,19 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
                   {/* 会員ID */}
                   <div>
                     <p className="text-sm text-gray-500 mb-1">会員ID</p>
-                    <p className="text-gray-900 font-medium">{userData.memberId}</p>
+                    <p className="text-gray-900 font-medium font-mono">{userData.memberId}</p>
+                  </div>
+
+                  {/* メールアドレス（ログインID） */}
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">メールアドレス（ログインID）</p>
+                    <p className="text-gray-900 font-medium">{userData.email}</p>
                   </div>
 
                   {/* パスワード */}
                   <div>
                     <p className="text-sm text-gray-500 mb-1">パスワード</p>
                     <p className="text-gray-900 font-medium">{userData.password}</p>
-                  </div>
-
-                  {/* メールアドレス */}
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">メールアドレス</p>
-                    <p className="text-gray-700">{userData.email}</p>
                   </div>
 
                   {/* 生年月日 */}
@@ -254,7 +254,7 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
                     <p className="text-sm text-purple-700 font-medium mb-2">紐付けされた共通ID（DID）</p>
                     <p className="text-purple-900 font-mono text-sm break-all">{userData.linkedDID}</p>
                     <p className="text-xs text-purple-600 mt-2">
-                      このDIDは会員ID {userData.memberId} に紐付けられています
+                      このDIDはアカウント {userData.email} に紐付けられています
                     </p>
                   </div>
                 )}
