@@ -26,6 +26,7 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
         setIsProcessingVC(false);
       } else if (vcResult.vc) {
         // VC情報を自動入力
+        setInputMethod('vc');
         setIsProcessingVC(true);
         clearVCParams();
 
