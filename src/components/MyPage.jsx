@@ -4,24 +4,15 @@ import ProfileEdit from './ProfileEdit';
 import { compareProfileData } from '../utils/profileComparison';
 import { redirectToWallet, getVCFromUrl, clearVCParams } from '../utils/walletRedirect';
 
-export default function MyPage({ onLogout, userState, onUpdateUserState, vcLoginInfo, delegationLoginInfo, onNavigateToDelegation }) {
+export default function MyPage({ onLogout, initialUserData, userState, onUpdateUserState, onUpdateUserData, vcLoginInfo, delegationLoginInfo, onNavigateToDelegation }) {
   const [submittedVC, setSubmittedVC] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showProfileMismatch, setShowProfileMismatch] = useState(false);
   const [profileDifferences, setProfileDifferences] = useState(null);
   const [isProcessingVC, setIsProcessingVC] = useState(false);
 
-  // ダミーデータ（初期値はuserStateから復元）
-  const [userData, setUserData] = useState({
-    memberId: 'M123456789',
-    name: '山田 太郎',
-    email: 'yamada.taro@example.com',
-    address: '〒150-0001 東京都渋谷区神宮前1-2-3',
-    birthDate: '1990年5月15日',
-    password: '************',
-    isVerified: userState?.isVerified || false,
-    linkedDID: userState?.linkedDID || null
-  });
+  // initialUserData（App.jsx から localStorage ベースで構築された値）で初期化
+  const [userData, setUserData] = useState(initialUserData);
 
   // URLパラメータからVCデータを取得（本人確認用）
   useEffect(() => {
@@ -96,6 +87,7 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
         linkedDID: null
       };
       setUserData(newUserData);
+      onUpdateUserData(formData);
       onUpdateUserState({
         isVerified: false,
         linkedDID: null
@@ -109,6 +101,7 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
         linkedDID: did || userData.linkedDID
       };
       setUserData(newUserData);
+      onUpdateUserData(formData);
       onUpdateUserState({
         isVerified: true,
         linkedDID: did || userData.linkedDID
@@ -126,13 +119,14 @@ export default function MyPage({ onLogout, userState, onUpdateUserState, vcLogin
         address: vcLoginInfo.address,
         birthDate: vcLoginInfo.birthDate,
       };
-      
+
       const newUserData = {
         ...userData,
         ...updatedData,
       };
-      
+
       setUserData(newUserData);
+      onUpdateUserData(updatedData);
       setShowProfileMismatch(false);
     }
   };

@@ -2,15 +2,25 @@ import { useState, useEffect } from 'react';
 import { Lock, Users, Shield } from './Icons';
 import { redirectToWallet, getVCFromUrl, clearVCParams } from '../utils/walletRedirect';
 
-export default function LoginPage({ onLogin, onDelegationLogin, userState, onNavigateToSignup }) {
+export default function LoginPage({ onLogin, onDelegationLogin, onNavigateToSignup }) {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loginMethod, setLoginMethod] = useState('password'); // 'password', 'did', 'vc', 'delegation'
   const [isProcessingVC, setIsProcessingVC] = useState(false);
 
-  // 登録済みDID（本人確認完了済みユーザーのDID）
-  const linkedDID = userState?.linkedDID || null;
+  // 全ユーザーのプロフィールからDIDで検索してメールを返すヘルパー
+  const findEmailByDID = (did) => {
+    try {
+      const profiles = JSON.parse(localStorage.getItem('userProfiles') || '{}');
+      for (const [email, profile] of Object.entries(profiles)) {
+        if (profile.userState?.linkedDID === did) {
+          return email;
+        }
+      }
+    } catch { /* ignore */ }
+    return null;
+  };
 
   // URLパラメータからVCデータを取得
   useEffect(() => {
@@ -27,13 +37,10 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
         setLoginMethod('did');
         clearVCParams();
 
-        console.log('=== DID認証デバッグ ===');
-        console.log('送信されたDID:', vcResult.vc.did);
-        console.log('登録済みDID:', linkedDID);
-
-        if (vcResult.vc.did && linkedDID && vcResult.vc.did === linkedDID) {
+        const matchedEmail = findEmailByDID(vcResult.vc.did);
+        if (matchedEmail) {
           setTimeout(() => {
-            onLogin(null);
+            onLogin(null, matchedEmail);
           }, 2000);
         } else {
           setIsProcessingVC(false);
@@ -45,16 +52,10 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
         setLoginMethod('vc');
         clearVCParams();
 
-        console.log('=== VC認証デバッグ ===');
-        console.log('VCのDID:', vcResult.vc.did);
-        console.log('登録済みDID:', linkedDID);
-        console.log('userState:', userState);
-        console.log('一致判定:', vcResult.vc.did === linkedDID);
-
-        // VCのDIDがサービスに登録されているかチェック
-        if (vcResult.vc.did && linkedDID && vcResult.vc.did === linkedDID) {
+        const matchedEmail = findEmailByDID(vcResult.vc.did);
+        if (matchedEmail) {
           setTimeout(() => {
-            onLogin(vcResult.vc);
+            onLogin(vcResult.vc, matchedEmail);
           }, 2000);
         } else {
           setIsProcessingVC(false);
@@ -67,13 +68,9 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
         clearVCParams();
 
         const delegationVC = vcResult.vc;
+        const matchedEmail = findEmailByDID(delegationVC.issuer?.did);
 
-        console.log('=== 代理ログイン検証 ===');
-        console.log('委任状VC:', delegationVC);
-        console.log('登録済みDID:', linkedDID);
-
-        // 委任者のDIDがサービスに登録されているかチェック
-        if (delegationVC.issuer?.did && linkedDID && delegationVC.issuer.did === linkedDID) {
+        if (matchedEmail) {
           // 失効リストのチェック
           const revokedList = JSON.parse(localStorage.getItem('revoked_delegations') || '[]');
           if (delegationVC.id && revokedList.includes(delegationVC.id)) {
@@ -91,7 +88,7 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
           }
 
           setTimeout(() => {
-            onDelegationLogin(delegationVC);
+            onDelegationLogin(delegationVC, matchedEmail);
           }, 2000);
         } else {
           setIsProcessingVC(false);
@@ -99,14 +96,25 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
         }
       }
     }
-  }, [linkedDID, onLogin, onDelegationLogin, userState]);
+  }, [onLogin, onDelegationLogin]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // デモ用の簡易認証
+    // 登録済みユーザーの認証情報を確認
+    try {
+      const profiles = JSON.parse(localStorage.getItem('userProfiles') || '{}');
+      for (const [email, profile] of Object.entries(profiles)) {
+        if (loginId === profile.email && password === profile.password) {
+          onLogin(null, email);
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+
+    // デモ用のフォールバック認証
     if (loginId === 'demo@example.com' && password === 'password') {
-      onLogin();
+      onLogin(null, 'demo@example.com');
     } else {
       setError('メールアドレスまたはパスワードが正しくありません');
     }
@@ -142,6 +150,18 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
       default:
         return { title: 'VCを検証中...', desc: '身分証明書の内容を確認しています' };
     }
+  };
+
+  // 登録済みアカウントのヒント表示
+  const getLoginHint = () => {
+    try {
+      const profiles = JSON.parse(localStorage.getItem('userProfiles') || '{}');
+      const emails = Object.keys(profiles);
+      if (emails.length > 0) {
+        return `登録済み: ${emails.join(', ')}`;
+      }
+    } catch { /* ignore */ }
+    return 'デモ用: 「demo@example.com」/ パスワード「password」';
   };
 
   return (
@@ -245,7 +265,7 @@ export default function LoginPage({ onLogin, onDelegationLogin, userState, onNav
 
             <div className="text-center">
               <p className="text-sm text-gray-600">
-                デモ用: 「demo@example.com」/ パスワード「password」
+                {getLoginHint()}
               </p>
             </div>
 
