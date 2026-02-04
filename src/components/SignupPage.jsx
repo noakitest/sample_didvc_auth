@@ -30,9 +30,15 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
         setIsProcessingVC(true);
         clearVCParams();
 
+        // 退避しておいたアカウント情報を復元
+        const savedDraft = sessionStorage.getItem('signup_draft');
+        const draft = savedDraft ? JSON.parse(savedDraft) : {};
+        sessionStorage.removeItem('signup_draft');
+
         setTimeout(() => {
           setFormData(prev => ({
             ...prev,
+            ...draft,
             name: vcResult.vc.holderName,
             address: vcResult.vc.address,
             birthDate: vcResult.vc.birthDate,
@@ -53,6 +59,12 @@ export default function SignupPage({ onSignupComplete, onBackToLogin }) {
   };
 
   const handleVCButtonClick = () => {
+    // リダイレクト前にアカウント情報を退避
+    sessionStorage.setItem('signup_draft', JSON.stringify({
+      loginId: formData.loginId,
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+    }));
     setIsProcessingVC(true);
     // ウォレットサービスにリダイレクト
     redirectToWallet('signup');
