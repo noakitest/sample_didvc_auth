@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserCircle, CheckCircle, AlertCircle, Edit, Shield, LogOut, Users } from './Icons';
+import { UserCircle, CheckCircle, AlertCircle, Edit, Shield, LogOut, Users, Link2 } from './Icons';
 import ProfileEdit from './ProfileEdit';
 import { compareProfileData } from '../utils/profileComparison';
 import { redirectToWallet, getVCFromUrl, clearVCParams } from '../utils/walletRedirect';
@@ -10,6 +10,8 @@ export default function MyPage({ onLogout, initialUserData, userState, onUpdateU
   const [showProfileMismatch, setShowProfileMismatch] = useState(false);
   const [profileDifferences, setProfileDifferences] = useState(null);
   const [isProcessingVC, setIsProcessingVC] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState('VCを検証中...');
+  const [didLinkSuccess, setDidLinkSuccess] = useState(false);
 
   // initialUserData（App.jsx から localStorage ベースで構築された値）で初期化
   const [userData, setUserData] = useState(initialUserData);
@@ -24,6 +26,7 @@ export default function MyPage({ onLogout, initialUserData, userState, onUpdateU
         setIsProcessingVC(false);
       } else if (vcResult.vc && vcResult.requestId === 'verify') {
         // 本人確認用のVC
+        setProcessingMessage('VCを検証中...');
         setIsProcessingVC(true);
         clearVCParams();
 
@@ -41,6 +44,28 @@ export default function MyPage({ onLogout, initialUserData, userState, onUpdateU
             linkedDID: vcResult.vc.did
           });
 
+          setIsProcessingVC(false);
+        }, 2000);
+      } else if (vcResult.vc && vcResult.requestId === 'did-auth') {
+        // DID単独紐付け
+        setProcessingMessage('DIDを紐付け中...');
+        setIsProcessingVC(true);
+        clearVCParams();
+
+        setTimeout(() => {
+          const newDID = vcResult.vc.did;
+          const newUserData = {
+            ...userData,
+            linkedDID: newDID
+          };
+          setUserData(newUserData);
+
+          onUpdateUserState({
+            isVerified: userData.isVerified,
+            linkedDID: newDID
+          });
+
+          setDidLinkSuccess(true);
           setIsProcessingVC(false);
         }, 2000);
       }
@@ -72,9 +97,15 @@ export default function MyPage({ onLogout, initialUserData, userState, onUpdateU
   }, [vcLoginInfo, userData.name, userData.address, userData.birthDate]);
 
   const handleVerifyIdentity = () => {
+    setProcessingMessage('VCを検証中...');
     setIsProcessingVC(true);
-    // ウォレットサービスにリダイレクト
     redirectToWallet('verify');
+  };
+
+  const handleLinkDID = () => {
+    setProcessingMessage('DIDを紐付け中...');
+    setIsProcessingVC(true);
+    redirectToWallet('did-auth');
   };
 
   const handleProfileSave = (formData, method, did = null) => {
@@ -245,11 +276,23 @@ export default function MyPage({ onLogout, initialUserData, userState, onUpdateU
                 {/* 紐付けDID */}
                 {userData.linkedDID && (
                   <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                    <p className="text-sm text-purple-700 font-medium mb-2">紐付けされた共通ID（DID）</p>
-                    <p className="text-purple-900 font-mono text-sm break-all">{userData.linkedDID}</p>
-                    <p className="text-xs text-purple-600 mt-2">
-                      このDIDはアカウント {userData.email} に紐付けられています
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-purple-700 font-medium mb-2">紐付けされた共通ID（DID）</p>
+                        <p className="text-purple-900 font-mono text-sm break-all">{userData.linkedDID}</p>
+                        <p className="text-xs text-purple-600 mt-2">
+                          このDIDはアカウント {userData.email} に紐付けられています
+                        </p>
+                      </div>
+                      {!delegationLoginInfo && (
+                        <button
+                          onClick={handleLinkDID}
+                          className="flex-shrink-0 text-xs text-purple-600 hover:text-purple-800 border border-purple-300 hover:border-purple-500 bg-white hover:bg-purple-50 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          更新
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -287,6 +330,16 @@ export default function MyPage({ onLogout, initialUserData, userState, onUpdateU
                     >
                       <Shield className="w-5 h-5" />
                       <span>本人確認を開始</span>
+                    </button>
+                  )}
+
+                  {!userData.linkedDID && !delegationLoginInfo && (
+                    <button
+                      onClick={handleLinkDID}
+                      className="inline-flex items-center space-x-2 px-6 py-3 bg-white text-purple-700 font-medium rounded-lg border-2 border-purple-300 hover:bg-purple-50 transition-colors"
+                    >
+                      <Link2 className="w-5 h-5" />
+                      <span>DIDを紐付ける</span>
                     </button>
                   )}
 
@@ -369,6 +422,29 @@ export default function MyPage({ onLogout, initialUserData, userState, onUpdateU
           </div>
         )}
 
+        {/* DID紐付け成功メッセージ */}
+        {didLinkSuccess && (
+          <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <CheckCircle className="text-purple-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-purple-800 font-medium">
+                  DIDの紐付けが完了しました
+                </p>
+                <p className="text-sm text-purple-700 mt-1">
+                  ウォレットのDIDがこのアカウントに紐付けられました。
+                </p>
+              </div>
+              <button
+                onClick={() => setDidLinkSuccess(false)}
+                className="text-purple-400 hover:text-purple-600 text-lg leading-none"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* VC提出成功メッセージ */}
         {submittedVC && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -393,9 +469,9 @@ export default function MyPage({ onLogout, initialUserData, userState, onUpdateU
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-8 max-w-sm mx-4 text-center">
             <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">VCを検証中...</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">{processingMessage}</h3>
             <p className="text-sm text-gray-600">
-              身分証明書の内容を確認しています
+              {processingMessage === 'DIDを紐付け中...' ? 'ウォレットからDID情報を取得しています' : '身分証明書の内容を確認しています'}
             </p>
           </div>
         </div>
